@@ -1,0 +1,1 @@
+# No packages needed; Candy Call uses only the Python standard library.

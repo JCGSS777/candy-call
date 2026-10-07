@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: candy-call
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python3 server.py
+    envVars:
+      - key: ACK_SECONDS
+        value: "45"
+      - key: TEAM_PIN
+        sync: false

@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2a1838">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Candy Call · Booth</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="/style.css">
+<style>
+  /* Single column, thumb-sized; the big button owns the screen. */
+  .wrap {
+    min-height: 100%; max-width: 520px; margin: 0 auto;
+    padding-inline: 20px; padding-block: 20px 28px;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .brand { font-family: var(--display); font-weight: 600; color: var(--accent); letter-spacing: .02em; }
+  .booth-tag { display: flex; align-items: center; gap: 8px; }
+  .booth-tag b {
+    font-family: var(--display); font-size: 1.25rem; font-weight: 600;
+    background: var(--ink); color: var(--bg); border-radius: 10px; padding: 2px 12px;
+  }
+  .booth-tag button { background: none; border: 0; color: var(--muted); text-decoration: underline; padding: 8px 4px; font-size: .9rem; }
+
+  .stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; text-align: center; }
+  .stage p { margin: 0; color: var(--muted); max-width: 30ch; }
+
+  /* Setup */
+  #setup h1 { font-size: 2rem; }
+  #setup form { width: 100%; display: grid; gap: 12px; }
+  #boothInput { text-align: center; text-transform: uppercase; letter-spacing: .12em; font-size: 2rem; font-family: var(--display); }
+  .err { color: var(--need); font-weight: 700; min-height: 1.4em; margin: 0; }
+
+  /* The refill button */
+  .big {
+    width: min(78vw, 320px); aspect-ratio: 1; max-width: 100%; border-radius: 50%;
+    border: 0; background: var(--accent); color: var(--accent-ink);
+    font-family: var(--display); font-size: 2rem; font-weight: 600; line-height: 1.1;
+    box-shadow: 0 10px 0 #9c4508, 0 18px 40px rgba(217, 98, 15, .35);
+    box-shadow: 0 10px 0 color-mix(in srgb, var(--accent) 65%, #000), 0 18px 40px rgba(217, 98, 15, .35);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    transition: transform .08s, box-shadow .08s;
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  }
+  .big small { font-family: var(--body); font-size: 1rem; font-weight: 700; opacity: .85; }
+  .big:active { transform: translateY(8px); box-shadow: 0 2px 0 #9c4508; box-shadow: 0 2px 0 color-mix(in srgb, var(--accent) 65%, #000), 0 8px 20px rgba(217, 98, 15, .3); }
+  .big:disabled { opacity: .6; }
+  .candy { width: 64px; height: 40px; }
+
+  .status-card {
+    width: 100%; border-radius: 24px; padding: 32px 22px;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+  }
+  .status-card h2 { font-size: 1.9rem; }
+  .status-card p { color: inherit; opacity: .85; }
+  .waiting { background: var(--need-soft); color: var(--ink); }
+  .waiting .light { width: 30px; height: 30px; }
+  .onway { background: var(--ok); color: var(--on-ok); }
+  .onway h2 { font-size: 2.3rem; }
+  .bar { width: 100%; height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--on-ok) 25%, transparent); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--on-ok); border-radius: inherit; transition: width 1s linear; }
+  .wait-time { font-variant-numeric: tabular-nums; font-weight: 700; }
+</style>
+</head>
+<body>
+<div id="conn" class="conn" hidden>Reconnecting…</div>
+
+<main class="wrap">
+  <div class="top">
+    <span class="brand">Candy Call</span>
+    <span class="booth-tag" id="boothTag" hidden>Booth <b id="boothLabel"></b><button id="changeBtn" type="button">Change</button></span>
+  </div>
+
+  <!-- Step 1: which booth is this? -->
+  <section id="setup" class="stage" hidden>
+    <h1>What's your booth number?</h1>
+    <p>It's on the sign at your booth, like A7 or 12.</p>
+    <form id="setupForm" autocomplete="off">
+      <input id="boothInput" class="field" maxlength="6" inputmode="text" autocapitalize="characters"
+             autocorrect="off" spellcheck="false" placeholder="A7" aria-label="Booth number" required>
+      <p class="err" id="setupErr"></p>
+      <button class="btn btn-primary" type="submit">Continue</button>
+    </form>
+  </section>
+
+  <!-- Step 2: ask for candy -->
+  <section id="main" class="stage" hidden>
+    <div id="idle" hidden>
+      <div class="stage">
+        <button id="refillBtn" class="big" type="button">
+          <svg class="candy" viewBox="0 0 64 40" aria-hidden="true">
+            <path d="M14 20 2 8v24zM50 20 62 8v24z" fill="currentColor" opacity=".8"/>
+            <ellipse cx="32" cy="20" rx="20" ry="15" fill="currentColor"/>
+            <path d="M20 12c6 4 6 12 0 16M32 6c6 6 6 22 0 28M44 12c-6 4-6 12 0 16" stroke="var(--accent)" stroke-width="3" fill="none" stroke-linecap="round"/>
+          </svg>
+          Need more candy
+          <small>Tap to call the candy team</small>
+        </button>
+        <p class="err" id="sendErr"></p>
+      </div>
+    </div>
+
+    <div id="waiting" class="status-card waiting" hidden>
+      <span class="light need"></span>
+      <h2>Request sent</h2>
+      <p>The candy team has been notified. Waiting <span class="wait-time" id="waitTime">0s</span></p>
+    </div>
+
+    <div id="onway" class="status-card onway" hidden role="status">
+      <h2>Candy is on its way!</h2>
+      <p>A runner is headed to your booth now.</p>
+      <div class="bar"><i id="ackBar"></i></div>
+    </div>
+  </section>
+</main>
+
+<script src="/common.js"></script>
+<script>
+  const C = window.CandyCall;
+  const $ = (id) => document.getElementById(id);
+  let booth = null;
+  let lastState = null;
+  let lastView = null;
+
+  // A QR code can point straight at a booth: /booth#A7
+  const fromHash = decodeURIComponent(location.hash.slice(1)).toUpperCase();
+  booth = /^[A-Z0-9]{1,6}$/.test(fromHash) ? fromHash : C.store("cc.booth");
+
+  function showSetup() {
+    $("setup").hidden = false; $("main").hidden = true; $("boothTag").hidden = true;
+    $("boothInput").value = booth || "";
+    setTimeout(() => $("boothInput").focus(), 50);
+  }
+
+  async function setBooth(id) {
+    booth = id;
+    C.store("cc.booth", id);
+    if (location.hash) history.replaceState(null, "", "/booth");
+    $("boothLabel").textContent = id;
+    $("boothTag").hidden = false; $("setup").hidden = true; $("main").hidden = false;
+    lastView = null;
+    render();
+    C.keepAwake();
+    try { await C.post("/api/join", { booth: id }); } catch (e) {}
+  }
+
+  $("setupForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const v = $("boothInput").value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!/^[A-Z0-9]{1,6}$/.test(v)) { $("setupErr").textContent = "Use 1 to 6 letters or numbers."; return; }
+    $("setupErr").textContent = "";
+    setBooth(v);
+  });
+  $("boothInput").addEventListener("input", (e) => {
+    e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  });
+  $("changeBtn").addEventListener("click", showSetup);
+
+  $("refillBtn").addEventListener("click", async () => {
+    $("refillBtn").disabled = true;
+    $("sendErr").textContent = "";
+    try {
+      await C.post("/api/request", { booth });
+      if (navigator.vibrate) navigator.vibrate(40);
+    } catch (e) {
+      $("sendErr").textContent = navigator.onLine === false
+        ? "No internet connection. Check your Wi-Fi or data and tap again."
+        : e.message;
+    } finally {
+      $("refillBtn").disabled = false;
+    }
+  });
+
+  function viewFor(b, s) {
+    if (!b) return "idle";
+    if (b.status === "requested") return "waiting";
+    if (b.status === "in_progress" && b.ackAt && C.now() - b.ackAt * 1000 < s.ackSeconds * 1000) return "onway";
+    return "idle"; // the "on its way" message has cleared; they can ask again
+  }
+
+  function render() {
+    if (!booth || !lastState) return;
+    const b = lastState.booths[booth];
+    const view = viewFor(b, lastState);
+    if (view !== lastView) {
+      $("idle").hidden = view !== "idle";
+      $("waiting").hidden = view !== "waiting";
+      $("onway").hidden = view !== "onway";
+      if (view === "onway" && lastView && navigator.vibrate) navigator.vibrate([120, 80, 120]);
+      lastView = view;
+    }
+    if (view === "waiting") $("waitTime").textContent = C.ago(b.requestedAt);
+    if (view === "onway") {
+      const left = lastState.ackSeconds * 1000 - (C.now() - b.ackAt * 1000);
+      $("ackBar").style.width = Math.max(0, (left / (lastState.ackSeconds * 1000)) * 100) + "%";
+    }
+  }
+
+  C.connect((s) => { lastState = s; render(); }, (up) => { $("conn").hidden = up; });
+  setInterval(render, 1000);
+
+  if (booth) setBooth(booth); else showSetup();
+</script>
+</body>
+</html>

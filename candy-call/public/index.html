@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2a1838">
+<title>Candy Call</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="/style.css">
+<style>
+  .wrap {
+    min-height: 100%; max-width: 520px; margin: 0 auto;
+    padding-inline: 20px; padding-block: 12vh 32px;
+    display: flex; flex-direction: column; gap: 28px;
+  }
+  h1 { font-size: 2.6rem; }
+  h1 span { color: var(--accent); }
+  .lede { margin: 0; color: var(--muted); }
+  .choices { display: grid; gap: 14px; }
+  .choice {
+    display: flex; align-items: center; gap: 16px; padding: 20px;
+    border-radius: 20px; background: var(--surface); border: 2px solid var(--line);
+    color: var(--ink); text-decoration: none; box-shadow: var(--shadow);
+  }
+  .choice strong { display: block; font-family: var(--display); font-weight: 600; font-size: 1.35rem; }
+  .choice small { color: var(--muted); font-size: .95rem; }
+  .choice .light { width: 26px; height: 26px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div>
+    <h1>Candy <span>Call</span></h1>
+    <p class="lede">Harvest party candy refills, booth to candy table.</p>
+  </div>
+  <nav class="choices">
+    <a class="choice" href="/booth">
+      <span class="light need"></span>
+      <span><strong>I'm at a booth</strong><small>Ask the candy team for a refill</small></span>
+    </a>
+    <a class="choice" href="/team">
+      <span class="light prog"></span>
+      <span><strong>Candy team</strong><small>See which booths need candy</small></span>
+    </a>
+  </nav>
+</main>
+</body>
+</html>

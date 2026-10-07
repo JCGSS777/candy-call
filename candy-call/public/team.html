@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2a1838">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Candy Call · Team</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="/style.css">
+<style>
+  /* Sticky summary bar over booth rows sized for iPad (one letter group per row), 4 across on phones. */
+  .bar {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
+    background: var(--bg); border-bottom: 1px solid var(--line);
+    padding-inline: 20px; padding-block: 12px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+  }
+  .bar h1 { font-size: 1.35rem; margin-right: auto; }
+  .bar h1 span { color: var(--accent); }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px;
+    border-radius: 999px; background: var(--surface); border: 1px solid var(--line);
+    font-weight: 700; font-variant-numeric: tabular-nums; font-size: .95rem;
+  }
+  .chip .light { width: 14px; height: 14px; box-shadow: none; animation: none; }
+  .chip.hot { background: var(--need); border-color: var(--need); color: #fff; }
+  .chip.hot .light { background: #fff; }
+  .tools { display: flex; gap: 8px; }
+  .icon-btn {
+    min-height: 44px; min-width: 44px; padding: 0 12px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--surface); font-weight: 700; font-size: .95rem;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .icon-btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .icon-btn svg { width: 20px; height: 20px; }
+
+  .content { padding-inline: 20px; padding-block: 18px 40px; }
+  /* One row per letter group (A, B, C...), columns aligned so A1 sits above B1. */
+  .grid { display: grid; gap: 14px; }
+  .group { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; align-items: start; }
+  .group + .group { border-top: 1px solid var(--line); padding-top: 14px; }
+  .glabel {
+    font-family: var(--display); font-weight: 600; font-size: 1.5rem; color: var(--muted);
+    text-align: center; padding-top: 10px;
+  }
+  .gtiles { display: grid; gap: 10px; grid-template-columns: repeat(var(--cols, 8), minmax(0, 1fr)); }
+  .grid.flat .group { grid-template-columns: minmax(0, 1fr); }
+  .grid.flat .glabel { display: none; }
+  .grid.flat .gtiles { gap: 12px; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+  @media (max-width: 900px) {
+    .tile { padding: 10px; min-height: 100px; }
+    .tile .light { width: 16px; height: 16px; top: 12px; right: 12px; }
+  }
+  @media (max-width: 520px) {
+    .group { grid-template-columns: 22px minmax(0, 1fr); gap: 8px; }
+    .glabel { font-size: 1.15rem; }
+    .gtiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+    .grid.flat .gtiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .bar, .content { padding-inline: 16px; }
+  }
+  .tile {
+    position: relative; min-height: 112px; border-radius: 18px; padding: 12px;
+    border: 2px solid var(--line); background: var(--surface);
+    display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; gap: 8px;
+    text-align: left; touch-action: manipulation;
+  }
+  .tile .id { font-family: var(--display); font-weight: 600; font-size: clamp(1.25rem, 2.4vw, 1.9rem); line-height: 1; }
+  .tile .sub { font-size: .82rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .tile .light { position: absolute; top: 14px; right: 14px; }
+  .tile.need { background: var(--need-soft); border-color: var(--need); }
+  .tile.need .sub { color: var(--need); }
+  .tile.prog { background: var(--prog-soft); border-color: var(--prog); }
+  .tile.prog .sub { color: var(--ink); }
+
+  .empty {
+    max-width: 46ch; margin: 8vh auto; text-align: center; color: var(--muted);
+    display: grid; gap: 14px; justify-items: center;
+  }
+  .empty h2 { color: var(--ink); font-size: 1.5rem; }
+
+  /* Bottom sheet for one booth / settings */
+  .scrim {
+    position: fixed; inset: 0; z-index: 40; background: rgba(20, 10, 28, .5);
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  @media (min-width: 700px) { .scrim { align-items: center; } }
+  .sheet {
+    width: 100%; max-width: 480px; max-height: 92vh; overflow: auto;
+    background: var(--surface); border-radius: 24px 24px 0 0; box-shadow: var(--shadow);
+    padding: 24px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+    display: grid; gap: 14px;
+  }
+  @media (min-width: 700px) { .sheet { border-radius: 24px; padding-bottom: 24px; } }
+  .sheet-head { display: flex; align-items: center; gap: 14px; }
+  .sheet-head h2 { font-size: 2.2rem; }
+  .sheet-head p { margin: 0; color: var(--muted); font-weight: 700; }
+  .sheet .btn { width: 100%; }
+  .sheet .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .sheet .row .btn { flex: 1 1 140px; width: auto; }
+  .sheet h3 { font-size: 1.1rem; }
+  .sheet label { font-weight: 700; font-size: .95rem; }
+  .sheet textarea {
+    width: 100%; min-height: 84px; border-radius: 12px; border: 2px solid var(--line);
+    background: var(--bg); color: var(--ink); padding: 10px 12px; font: 600 1rem var(--body); resize: vertical;
+  }
+  .hint { margin: 0; color: var(--muted); font-size: .9rem; }
+  .hint code, .link-box {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .88rem;
+    background: var(--surface-2); border-radius: 6px; padding: 1px 6px;
+  }
+  .link-box { display: block; padding: 10px 12px; word-break: break-all; user-select: all; -webkit-user-select: all; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; width: 100%; }
+  .confirm { background: var(--need-soft); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
+
+  #pinGate .sheet { text-align: center; }
+  #pinInput { text-align: center; letter-spacing: .3em; }
+  .err { color: var(--need); font-weight: 700; margin: 0; min-height: 1.3em; }
+
+  .toast {
+    position: fixed; left: 50%; transform: translateX(-50%); z-index: 60;
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-weight: 700;
+  }
+</style>
+</head>
+<body>
+<div id="conn" class="conn" hidden>Reconnecting…</div>
+
+<header class="bar">
+  <h1>Candy <span>Call</span></h1>
+  <div class="chips" aria-live="polite">
+    <span class="chip" id="needChip"><span class="light need"></span><span id="needCount">0</span> need candy</span>
+    <span class="chip"><span class="light prog"></span><span id="progCount">0</span> on the way</span>
+    <span class="chip"><span class="light"></span><span id="okCount">0</span> stocked</span>
+  </div>
+  <div class="tools">
+    <button class="icon-btn" id="sortBtn" type="button" aria-pressed="false" title="Show booths that need candy first">Needs first</button>
+    <button class="icon-btn" id="soundBtn" type="button" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>
+      <span id="soundLabel">Sound off</span>
+    </button>
+    <button class="icon-btn" id="setupBtn" type="button" aria-label="Booth setup">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="var(--surface)"/><circle cx="15" cy="12" r="2" fill="var(--surface)"/><circle cx="7" cy="18" r="2" fill="var(--surface)"/></svg>
+      Setup
+    </button>
+  </div>
+</header>
+
+<main class="content">
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" hidden>
+    <h2>No booths yet</h2>
+    <p>Booths appear here as soon as a volunteer enters their booth number. You can also add your whole booth list now.</p>
+    <button class="btn btn-primary" type="button" id="emptySetup">Add booths</button>
+  </div>
+</main>
+
+<!-- One booth -->
+<div class="scrim" id="boothSheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="bsId">
+    <div class="sheet-head">
+      <span class="light" id="bsLight"></span>
+      <div><h2 id="bsId"></h2><p id="bsStatus"></p></div>
+    </div>
+    <div id="bsActions" style="display:grid;gap:10px"></div>
+    <button class="btn btn-ghost" type="button" data-close>Close</button>
+  </div>
+</div>
+
+<!-- Setup -->
+<div class="scrim" id="setupSheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="setupTitle">
+    <h2 id="setupTitle" style="font-size:1.6rem">Booth setup</h2>
+
+    <h3>Link for booth volunteers</h3>
+    <span class="link-box" id="boothLink"></span>
+    <p class="hint">Add <code>#A7</code> to the end to make a link (or QR code) that opens straight to booth A7.</p>
+
+    <hr>
+    <label for="boothList">Booth numbers</label>
+    <textarea id="boothList" placeholder="A1-A12, B1-B8, 21, 22"></textarea>
+    <p class="hint">Separate with commas. Ranges like <code>A1-A12</code> fill in every number. Each letter gets its own row on the dashboard.</p>
+    <div class="row">
+      <button class="btn btn-primary" type="button" id="addBooths">Add to grid</button>
+      <button class="btn" type="button" id="replaceBooths">Replace grid</button>
+    </div>
+
+    <hr>
+    <button class="btn btn-danger" type="button" id="resetBtn">Start a new night</button>
+    <div class="confirm" id="resetConfirm" hidden>
+      <p class="hint" style="color:var(--ink)">Turns every booth green and sets refill counts to zero. The booth list stays.</p>
+      <div class="row">
+        <button class="btn" type="button" id="resetNo">Keep everything</button>
+        <button class="btn btn-danger" type="button" id="resetYes">Reset all booths</button>
+      </div>
+    </div>
+    <button class="btn btn-ghost" type="button" data-close>Done</button>
+  </div>
+</div>
+
+<!-- PIN gate (only when the server sets TEAM_PIN) -->
+<div class="scrim" id="pinGate" hidden>
+  <form class="sheet" id="pinForm" autocomplete="off">
+    <h2 style="font-size:1.6rem">Candy team PIN</h2>
+    <p class="hint">Ask the candy coordinator for the PIN.</p>
+    <input id="pinInput" class="field" inputmode="numeric" type="password" aria-label="Team PIN" required>
+    <p class="err" id="pinErr"></p>
+    <button class="btn btn-primary" type="submit">Unlock</button>
+  </form>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="/common.js"></script>
+<script>
+  const C = window.CandyCall;
+  const $ = (id) => document.getElementById(id);
+  let S = null;
+  let pin = C.store("cc.pin") || "";
+  let needsFirst = C.store("cc.needsFirst") === "1";
+  let soundOn = false;
+  let openBooth = null;
+  let prevNeed = new Set();
+  let audio = null;
+
+  // ---- sound (unlocked by a tap, as iOS and Android both require) ----
+  function chime() {
+    if (!soundOn || !audio) return;
+    const t = audio.currentTime;
+    [880, 1175].forEach((f, i) => {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t + i * 0.18);
+      g.gain.exponentialRampToValueAtTime(0.4, t + i * 0.18 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.18 + 0.35);
+      o.connect(g).connect(audio.destination);
+      o.start(t + i * 0.18); o.stop(t + i * 0.18 + 0.4);
+    });
+  }
+  $("soundBtn").addEventListener("click", () => {
+    soundOn = !soundOn;
+    if (soundOn && !audio) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audio = new AC();
+    }
+    if (audio && audio.state === "suspended") audio.resume();
+    $("soundBtn").setAttribute("aria-pressed", soundOn);
+    $("soundLabel").textContent = soundOn ? "Sound on" : "Sound off";
+    if (soundOn) chime();
+  });
+
+  $("sortBtn").setAttribute("aria-pressed", needsFirst);
+  $("sortBtn").addEventListener("click", () => {
+    needsFirst = !needsFirst;
+    C.store("cc.needsFirst", needsFirst ? "1" : "0");
+    $("sortBtn").setAttribute("aria-pressed", needsFirst);
+    render();
+  });
+
+  function toast(msg) {
+    const t = $("toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 2400);
+  }
+
+  async function act(path, body) {
+    try { await C.post(path, Object.assign({ pin }, body)); return true; }
+    catch (e) {
+      if (/PIN/.test(e.message)) { pin = ""; C.store("cc.pin", null); showPin(); }
+      else toast(e.message);
+      return false;
+    }
+  }
+
+  // ---- grid ----
+  const tiles = new Map(); // booth id -> tile button, reused across renders
+  const rows = new Map();  // group key -> row element
+
+  function tileFor(id) {
+    let el = tiles.get(id);
+    if (!el) {
+      el = document.createElement("button");
+      el.type = "button"; el.dataset.id = id;
+      el.innerHTML = '<span class="id"></span><span class="sub"></span><span class="light"></span>';
+      el.querySelector(".id").textContent = id;
+      el.addEventListener("click", () => openSheet(id));
+      tiles.set(id, el);
+    }
+    return el;
+  }
+
+  // "A1".."A8", "B1".. -> one group per leading letters; plain numbers go in a "#" group at the end.
+  function groupByLetter(ids) {
+    const groups = new Map();
+    ids.forEach((id) => {
+      const key = (id.match(/^[A-Z]+/) || ["#"])[0];
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(id);
+    });
+    const num = (id) => parseInt(id.replace(/^[A-Z]+/, ""), 10);
+    return [...groups.keys()]
+      .sort((a, b) => (a === "#") - (b === "#") || a.length - b.length || a.localeCompare(b))
+      .map((key) => ({
+        key, label: key,
+        ids: groups.get(key).sort((a, b) => (num(a) - num(b)) || a.localeCompare(b)),
+      }));
+  }
+
+  function layout(groups) {
+    const grid = $("grid");
+    grid.classList.toggle("flat", needsFirst);
+    const cols = Math.min(10, Math.max(4, ...groups.map((g) => g.ids.length)));
+    grid.style.setProperty("--cols", cols);
+    groups.forEach((g, gi) => {
+      let row = rows.get(g.key);
+      if (!row) {
+        row = document.createElement("section");
+        row.className = "group";
+        row.innerHTML = '<div class="glabel" aria-hidden="true"></div><div class="gtiles"></div>';
+        rows.set(g.key, row);
+      }
+      row.firstChild.textContent = g.label;
+      row.setAttribute("aria-label", g.key === "all" ? "Booths" : "Row " + g.label);
+      if (grid.children[gi] !== row) grid.insertBefore(row, grid.children[gi] || null);
+      const box = row.lastChild;
+      g.ids.forEach((id, i) => {
+        const el = tiles.get(id);
+        if (box.children[i] !== el) box.insertBefore(el, box.children[i] || null);
+      });
+      while (box.children.length > g.ids.length) box.lastChild.remove();
+    });
+    while (grid.children.length > groups.length) grid.lastChild.remove();
+    const live = new Set(groups.flatMap((g) => g.ids));
+    tiles.forEach((el, id) => { if (!live.has(id)) { el.remove(); tiles.delete(id); } });
+    const keys = new Set(groups.map((g) => g.key));
+    rows.forEach((row, key) => { if (!keys.has(key)) rows.delete(key); });
+  }
+
+  const rank = { requested: 0, in_progress: 1, ok: 2 };
+  function cls(st) { return st === "requested" ? "need" : st === "in_progress" ? "prog" : ""; }
+  function subText(b) {
+    if (b.status === "requested") return "Waiting " + C.ago(b.requestedAt);
+    if (b.status === "in_progress") return "On the way · " + C.ago(b.ackAt);
+    return b.count ? b.count + (b.count === 1 ? " refill" : " refills") : "Stocked";
+  }
+
+  function render() {
+    if (!S) return;
+    const ids = S.order.slice();
+    if (needsFirst) {
+      const pos = new Map(ids.map((id, i) => [id, i]));
+      ids.sort((a, b) => {
+        const A = S.booths[a], B = S.booths[b];
+        return rank[A.status] - rank[B.status]
+          || (A.status === "requested" ? (A.requestedAt - B.requestedAt) : 0)
+          || pos.get(a) - pos.get(b);
+      });
+    }
+    const counts = { requested: 0, in_progress: 0, ok: 0 };
+    ids.forEach((id) => {
+      const b = S.booths[id];
+      counts[b.status]++;
+      const el = tileFor(id);
+      el.className = "tile " + cls(b.status);
+      el.querySelector(".light").className = "light " + cls(b.status);
+      el.querySelector(".sub").textContent = subText(b);
+      el.setAttribute("aria-label", "Booth " + id + ", " + subText(b));
+    });
+    layout(needsFirst ? [{ key: "all", label: "", ids }] : groupByLetter(ids));
+
+    $("empty").hidden = ids.length > 0;
+    $("needCount").textContent = counts.requested;
+    $("progCount").textContent = counts.in_progress;
+    $("okCount").textContent = counts.ok;
+    $("needChip").classList.toggle("hot", counts.requested > 0);
+    document.title = (counts.requested ? "(" + counts.requested + ") " : "") + "Candy Call · Team";
+    if (openBooth) fillSheet();
+  }
+
+  function onState(s) {
+    S = s;
+    const need = new Set(Object.keys(s.booths).filter((id) => s.booths[id].status === "requested"));
+    if ([...need].some((id) => !prevNeed.has(id))) chime();
+    prevNeed = need;
+    if (s.pinRequired && !pin) showPin();
+    render();
+  }
+
+  // ---- booth sheet ----
+  function openSheet(id) { openBooth = id; fillSheet(); $("boothSheet").hidden = false; }
+  function closeSheets() { openBooth = null; document.querySelectorAll(".scrim").forEach((s) => { if (s.id !== "pinGate") s.hidden = true; }); }
+  document.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", closeSheets));
+  document.querySelectorAll(".scrim").forEach((s) => s.addEventListener("click", (e) => { if (e.target === s && s.id !== "pinGate") closeSheets(); }));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSheets(); });
+
+  function button(label, kind, fn) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "btn " + kind; b.textContent = label;
+    b.addEventListener("click", async () => { b.disabled = true; await fn(); b.disabled = false; });
+    return b;
+  }
+
+  function fillSheet() {
+    const id = openBooth, b = S && S.booths[id];
+    if (!b) { closeSheets(); return; }
+    $("bsId").textContent = "Booth " + id;
+    $("bsLight").className = "light " + cls(b.status);
+    const box = $("bsActions");
+    const key = b.status + (b.status === "ok" ? "" : "");
+    if (box.dataset.key !== key) {
+      box.dataset.key = key;
+      box.replaceChildren();
+      if (b.status === "requested") {
+        box.append(button("Mark in progress & notify booth", "btn-primary", async () => {
+          if (await act("/api/ack", { booth: id })) { toast("Booth " + id + " told candy is coming"); closeSheets(); }
+        }));
+      } else if (b.status === "in_progress") {
+        box.append(button("Refill delivered", "btn-ok", async () => {
+          if (await act("/api/deliver", { booth: id })) { toast("Booth " + id + " is stocked"); closeSheets(); }
+        }));
+        box.append(button("Send the booth message again", "", async () => {
+          if (await act("/api/ack", { booth: id })) toast("Message sent again");
+        }));
+        box.append(button("Clear without a refill", "btn-ghost", async () => {
+          if (await act("/api/clear", { booth: id })) closeSheets();
+        }));
+      } else {
+        box.append(button("Remove booth from grid", "btn-ghost btn-danger", async () => {
+          if (await act("/api/remove", { booth: id })) { toast("Booth " + id + " removed"); closeSheets(); }
+        }));
+      }
+    }
+    $("bsStatus").textContent =
+      b.status === "requested" ? "Needs candy · waiting " + C.ago(b.requestedAt)
+      : b.status === "in_progress" ? "Candy on the way · " + C.ago(b.ackAt) + " ago"
+      : "Stocked · " + (b.count || 0) + " refills tonight";
+  }
+
+  // ---- setup ----
+  function openSetup() {
+    $("boothLink").textContent = location.origin + "/booth";
+    $("resetConfirm").hidden = true;
+    $("setupSheet").hidden = false;
+  }
+  $("setupBtn").addEventListener("click", openSetup);
+  $("emptySetup").addEventListener("click", openSetup);
+  $("addBooths").addEventListener("click", async () => {
+    if (await act("/api/booths", { list: $("boothList").value })) { $("boothList").value = ""; toast("Booths added"); }
+  });
+  $("replaceBooths").addEventListener("click", async () => {
+    if (!$("boothList").value.trim()) { toast("Type the booth numbers first"); return; }
+    if (await act("/api/booths", { list: $("boothList").value, replace: true })) { $("boothList").value = ""; toast("Grid replaced"); }
+  });
+  $("resetBtn").addEventListener("click", () => ($("resetConfirm").hidden = false));
+  $("resetNo").addEventListener("click", () => ($("resetConfirm").hidden = true));
+  $("resetYes").addEventListener("click", async () => {
+    if (await act("/api/reset")) { $("resetConfirm").hidden = true; toast("All booths reset"); }
+  });
+
+  // ---- PIN ----
+  function showPin() { $("pinGate").hidden = false; setTimeout(() => $("pinInput").focus(), 50); }
+  $("pinForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const tryPin = $("pinInput").value.trim();
+    const r = await C.post("/api/team/check", { pin: tryPin }).catch(() => ({}));
+    if (r.ok) { pin = tryPin; C.store("cc.pin", pin); $("pinGate").hidden = true; $("pinErr").textContent = ""; }
+    else $("pinErr").textContent = "That PIN didn't work. Try again.";
+  });
+
+  C.connect(onState, (up) => { $("conn").hidden = up; });
+  setInterval(render, 1000);
+  C.keepAwake();
+</script>
+</body>
+</html>
