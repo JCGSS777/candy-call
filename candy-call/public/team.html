@@ -7,6 +7,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Candy Call · Team</title>
+<link rel="manifest" href="/team.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Candy Team">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="/style.css">
@@ -403,19 +407,27 @@
     return b;
   }
 
+  function refills(b) {
+    const n = b.count || 0;
+    return n + (n === 1 ? " refill" : " refills") + " tonight" + (b.manual ? " (" + b.manual + " in person)" : "");
+  }
+
   function fillSheet() {
     const id = openBooth, b = S && S.booths[id];
     if (!b) { closeSheets(); return; }
     $("bsId").textContent = "Booth " + id;
     $("bsLight").className = "light " + cls(b.status);
     const box = $("bsActions");
-    const key = b.status + (b.status === "ok" ? "" : "");
+    const key = b.status + (b.count ? "+" : "");
     if (box.dataset.key !== key) {
       box.dataset.key = key;
       box.replaceChildren();
       if (b.status === "requested") {
         box.append(button("Mark in progress & notify booth", "btn-primary", async () => {
           if (await act("/api/ack", { booth: id })) { toast("Booth " + id + " told candy is coming"); closeSheets(); }
+        }));
+        box.append(button("Refill given in person", "", async () => {
+          if (await act("/api/deliver", { booth: id, manual: true })) { toast("Refill logged for booth " + id); closeSheets(); }
         }));
       } else if (b.status === "in_progress") {
         box.append(button("Refill delivered", "btn-ok", async () => {
@@ -428,6 +440,15 @@
           if (await act("/api/clear", { booth: id })) closeSheets();
         }));
       } else {
+        box.append(button("Log a refill given in person", "btn-ok", async () => {
+          if (await act("/api/deliver", { booth: id, manual: true })) { toast("Refill logged for booth " + id); closeSheets(); }
+        }));
+        box.append(button("Mark as needing candy", "", async () => {
+          if (await act("/api/request", { booth: id })) { toast("Booth " + id + " marked as needing candy"); closeSheets(); }
+        }));
+        if (b.count) box.append(button("Remove one refill", "btn-ghost", async () => {
+          if (await act("/api/uncount", { booth: id })) toast("Removed one refill from booth " + id);
+        }));
         box.append(button("Remove booth from grid", "btn-ghost btn-danger", async () => {
           if (await act("/api/remove", { booth: id })) { toast("Booth " + id + " removed"); closeSheets(); }
         }));
@@ -436,7 +457,7 @@
     $("bsStatus").textContent =
       b.status === "requested" ? "Needs candy · waiting " + C.ago(b.requestedAt)
       : b.status === "in_progress" ? "Candy on the way · " + C.ago(b.ackAt) + " ago"
-      : "Stocked · " + (b.count || 0) + " refills tonight";
+      : "Stocked · " + refills(b);
   }
 
   // ---- setup ----

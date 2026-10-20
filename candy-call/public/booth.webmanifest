@@ -1,0 +1,25 @@
+{
+  "id": "/booth",
+  "name": "Candy Call",
+  "short_name": "Candy Call",
+  "description": "Ask the candy team for a refill from your booth.",
+  "start_url": "/booth",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f2f8",
+  "theme_color": "#2a1838",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
