@@ -24,6 +24,12 @@ Team dashboard extras:
 - **Setup** lets you load your booth list (`A1-A12, B1-B8, 21`), sort the grid, and **Start a new night**, which turns every booth green and zeroes the counts.
 - Booths not on your list are added automatically the first time a volunteer signs in with that number.
 
+**Put it on the home screen like an app (optional):**
+- iPhone or iPad: open the page in Safari → Share → **Add to Home Screen**.
+- Android: open the page in Chrome → menu (⋮) → **Add to Home screen** or **Install app**.
+
+The booth page installs as **Candy Call** and the team page as **Candy Team**. Both open full screen with no address bar. On iPhone and iPad the home-screen icon keeps its own memory, so the first time it opens it asks for the booth number (or team PIN) once more.
+
 **QR code tip:** a link ending in `#A7`, like `https://your-site/booth#A7`, opens straight to booth A7. Print a QR code for each booth's sign and volunteers never have to type anything.
 
 ## Running it

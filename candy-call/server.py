@@ -35,7 +35,8 @@ listeners = set()  # one queue.Queue per open event stream
 
 # booths: id -> {"status": "ok"|"requested"|"in_progress",
 #                "requestedAt": float|None, "ackAt": float|None,
-#                "count": int}   (count = refills delivered tonight)
+#                "count": int,   (refills delivered tonight)
+#                "manual": int}  (how many of those were logged as given in person)
 state = {"order": [], "booths": {}}
 
 
@@ -148,7 +149,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"error": "Not found"}, 404)
         types = {".html": "text/html; charset=utf-8", ".css": "text/css",
                  ".js": "application/javascript", ".svg": "image/svg+xml",
-                 ".json": "application/json", ".png": "image/png"}
+                 ".json": "application/json", ".png": "image/png",
+                 ".webmanifest": "application/manifest+json"}
         body = f.read_bytes()
         self.send_response(200)
         self.send_header("Content-Type", types.get(f.suffix, "application/octet-stream"))
@@ -215,7 +217,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"error": "Wrong team PIN."}, 403)
 
         with lock:
-            if path in ("/api/ack", "/api/deliver", "/api/clear", "/api/remove"):
+            if path in ("/api/ack", "/api/deliver", "/api/clear", "/api/remove", "/api/uncount"):
                 b = state["booths"].get(bid)
                 if not b:
                     return self.send_json({"error": "Unknown booth."}, 404)
@@ -224,6 +226,12 @@ class Handler(BaseHTTPRequestHandler):
                     print(f"{time.strftime('%H:%M:%S')}  booth {bid} acknowledged", flush=True)
                 elif path == "/api/deliver":
                     b.update(status="ok", requestedAt=None, ackAt=None, count=b.get("count", 0) + 1)
+                    if data.get("manual"):
+                        b["manual"] = b.get("manual", 0) + 1
+                        print(f"{time.strftime('%H:%M:%S')}  booth {bid} refill logged in person", flush=True)
+                elif path == "/api/uncount":
+                    b["count"] = max(0, b.get("count", 0) - 1)
+                    b["manual"] = min(b.get("manual", 0), b["count"])
                 elif path == "/api/clear":
                     b.update(status="ok", requestedAt=None, ackAt=None)
                 elif path == "/api/remove":
@@ -241,7 +249,7 @@ class Handler(BaseHTTPRequestHandler):
                 state["order"].sort(key=natural_key)
             elif path == "/api/reset":
                 for b in state["booths"].values():
-                    b.update(status="ok", requestedAt=None, ackAt=None, count=0)
+                    b.update(status="ok", requestedAt=None, ackAt=None, count=0, manual=0)
             else:
                 return self.send_json({"error": "Not found"}, 404)
             broadcast()
