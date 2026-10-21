@@ -24,6 +24,8 @@ Team dashboard extras:
 - **Setup** lets you load your booth list (`A1-A12, B1-B8, 21`), sort the grid, and **Start a new night**, which turns every booth green and zeroes the counts.
 - Booths not on your list are added automatically the first time a volunteer signs in with that number.
 
+**Event overview** (`/admin`, the third choice on the home page): candy left, refills made (from the app and in person), average time to answer a request, the busiest booth, refills over time, and a table of refills for each booth. Enter what you started with and how much one refill uses under **Candy on hand**, and add candy there if you buy more during the night. Changing those numbers needs the team PIN. **Download spreadsheet** saves everything, including a time-stamped log of every refill. **Start a new night** on the team dashboard clears the refill log but keeps your candy numbers.
+
 **Put it on the home screen like an app (optional):**
 - iPhone or iPad: open the page in Safari → Share → **Add to Home Screen**.
 - Android: open the page in Chrome → menu (⋮) → **Add to Home screen** or **Install app**.

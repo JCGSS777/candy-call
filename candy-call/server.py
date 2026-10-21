@@ -37,7 +37,11 @@ listeners = set()  # one queue.Queue per open event stream
 #                "requestedAt": float|None, "ackAt": float|None,
 #                "count": int,   (refills delivered tonight)
 #                "manual": int}  (how many of those were logged as given in person)
-state = {"order": [], "booths": {}}
+# log: [{"t": float, "type": "request"|"ack"|"refill", "booth": id,
+#        "wait": seconds (ack only), "manual": bool (refill only)}]
+# inventory: candy on hand for the event overview page
+state = {"order": [], "booths": {}, "log": [], "inventory": {}}
+LOG_LIMIT = 20000
 
 
 def load():
@@ -48,6 +52,12 @@ def load():
         state.setdefault("booths", {})
     except (OSError, ValueError):
         pass
+    state.setdefault("log", [])
+    inv = state.setdefault("inventory", {})
+    inv.setdefault("unit", "bags")
+    inv.setdefault("perRefill", 1)
+    inv.setdefault("starting", 0)
+    inv.setdefault("restocks", [])
 
 
 def save():
@@ -67,6 +77,20 @@ def snapshot():
         "order": state["order"],
         "booths": state["booths"],
     }
+
+
+def log_event(kind, bid, **extra):
+    """Call with the lock held."""
+    state["log"].append(dict(t=time.time(), type=kind, booth=bid, **extra))
+    del state["log"][:-LOG_LIMIT]
+
+
+def number(value, default=0.0):
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return default
+    return n if 0 <= n <= 1_000_000 else default
 
 
 def broadcast():
@@ -142,7 +166,10 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/state":
             with lock:
                 return self.send_json(snapshot())
-        pages = {"/": "index.html", "/booth": "booth.html", "/team": "team.html"}
+        if path == "/api/overview":
+            with lock:
+                return self.send_json(dict(snapshot(), log=state["log"], inventory=state["inventory"]))
+        pages = {"/": "index.html", "/booth": "booth.html", "/team": "team.html", "/admin": "admin.html"}
         name = pages.get(path, path.lstrip("/"))
         f = (PUBLIC / name).resolve()
         if PUBLIC not in f.parents or not f.is_file():
@@ -199,6 +226,7 @@ class Handler(BaseHTTPRequestHandler):
                 b = ensure_booth(bid)
                 if b["status"] != "requested":
                     b.update(status="requested", requestedAt=time.time(), ackAt=None)
+                    log_event("request", bid)
                     print(f"{time.strftime('%H:%M:%S')}  booth {bid} requested a refill", flush=True)
                 broadcast()
             return self.send_json({"ok": True})
@@ -222,14 +250,24 @@ class Handler(BaseHTTPRequestHandler):
                 if not b:
                     return self.send_json({"error": "Unknown booth."}, 404)
                 if path == "/api/ack":
+                    if b["status"] == "requested" and b.get("requestedAt"):
+                        log_event("ack", bid, wait=round(time.time() - b["requestedAt"], 1))
                     b.update(status="in_progress", ackAt=time.time())
                     print(f"{time.strftime('%H:%M:%S')}  booth {bid} acknowledged", flush=True)
                 elif path == "/api/deliver":
                     b.update(status="ok", requestedAt=None, ackAt=None, count=b.get("count", 0) + 1)
+                    log_event("refill", bid, manual=bool(data.get("manual")))
                     if data.get("manual"):
                         b["manual"] = b.get("manual", 0) + 1
                         print(f"{time.strftime('%H:%M:%S')}  booth {bid} refill logged in person", flush=True)
                 elif path == "/api/uncount":
+                    for i in range(len(state["log"]) - 1, -1, -1):
+                        e = state["log"][i]
+                        if e["type"] == "refill" and e["booth"] == bid:
+                            if e.get("manual"):
+                                b["manual"] = max(0, b.get("manual", 0) - 1)
+                            del state["log"][i]
+                            break
                     b["count"] = max(0, b.get("count", 0) - 1)
                     b["manual"] = min(b.get("manual", 0), b["count"])
                 elif path == "/api/clear":
@@ -250,6 +288,21 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/reset":
                 for b in state["booths"].values():
                     b.update(status="ok", requestedAt=None, ackAt=None, count=0, manual=0)
+                state["log"] = []
+            elif path == "/api/inventory":
+                inv = state["inventory"]
+                unit = str(data.get("unit", inv["unit"])).strip()[:20]
+                inv.update(unit=unit or "bags",
+                           perRefill=number(data.get("perRefill"), inv["perRefill"]),
+                           starting=number(data.get("starting"), inv["starting"]))
+            elif path == "/api/restock":
+                amount = number(data.get("amount"))
+                if amount <= 0:
+                    return self.send_json({"error": "Enter how much candy was added."}, 400)
+                state["inventory"]["restocks"].append({"t": time.time(), "amount": amount})
+            elif path == "/api/restock/undo":
+                if state["inventory"]["restocks"]:
+                    state["inventory"]["restocks"].pop()
             else:
                 return self.send_json({"error": "Not found"}, 404)
             broadcast()
