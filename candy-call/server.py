@@ -289,6 +289,10 @@ class Handler(BaseHTTPRequestHandler):
                 for b in state["booths"].values():
                     b.update(status="ok", requestedAt=None, ackAt=None, count=0, manual=0)
                 state["log"] = []
+            elif path == "/api/wipe":
+                state.update(order=[], booths={}, log=[],
+                             inventory={"unit": "bags", "perRefill": 1, "starting": 0, "restocks": []})
+                print(f"{time.strftime('%H:%M:%S')}  everything erased from the team dashboard", flush=True)
             elif path == "/api/inventory":
                 inv = state["inventory"]
                 unit = str(data.get("unit", inv["unit"])).strip()[:20]
