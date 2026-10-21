@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2a1838">
+<title>Candy Call · Event overview</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Candy Overview">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="/style.css">
+<style>
+  /* Summary tiles, then candy-on-hand beside refills-over-time, then the per-booth table. iPad first. */
+  .bar {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
+    background: var(--bg); border-bottom: 1px solid var(--line);
+    padding-inline: 20px; padding-block: 12px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+  }
+  .bar h1 { font-size: 1.35rem; margin-right: auto; }
+  .bar h1 span { color: var(--accent); }
+  .bar h1 small { font-family: var(--body); font-size: .95rem; font-weight: 700; color: var(--muted); margin-left: 8px; }
+  .icon-btn {
+    min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--surface); font-weight: 700; font-size: .95rem; color: var(--ink);
+    display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+  }
+  .content { padding-inline: 20px; padding-block: 18px 48px; display: grid; gap: 18px; max-width: 1280px; margin: 0 auto; }
+
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; display: grid; gap: 6px; align-content: start; }
+  .tile .label { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .tile .big { font-family: var(--display); font-weight: 600; font-size: 2.3rem; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .tile .big small { font-family: var(--body); font-size: 1rem; font-weight: 700; color: var(--muted); margin-left: 4px; }
+  .tile .sub { font-size: .9rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .meter { height: 10px; border-radius: 99px; background: var(--surface-2); overflow: hidden; margin-top: 4px; }
+  .meter i { display: block; height: 100%; border-radius: 99px; background: var(--accent); }
+  .tile.low .big { color: var(--need); }
+
+  .pair { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 18px; align-items: start; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px; display: grid; gap: 14px; min-width: 0; }
+  .card h2 { font-size: 1.25rem; }
+  .card .hint { margin: 0; color: var(--muted); font-size: .9rem; }
+
+  .fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .fields label, .add label { display: grid; gap: 4px; font-size: .85rem; font-weight: 700; color: var(--muted); }
+  .fields input, .add input {
+    width: 100%; min-height: 46px; padding: 0 12px; border-radius: 12px; border: 2px solid var(--line);
+    background: var(--bg); color: var(--ink); font: 700 1.05rem var(--body); font-variant-numeric: tabular-nums;
+  }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+  .add { display: flex; gap: 10px; align-items: end; }
+  .add label { flex: 1; }
+  .btn.small { min-height: 46px; padding: 0 16px; font-size: .95rem; }
+  .restocks { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: .92rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .restocks b { color: var(--ink); }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 0; }
+
+  /* Refills over time */
+  .chart-wrap { position: relative; min-width: 0; }
+  .chart-wrap svg { display: block; width: 100%; height: 240px; }
+  .chart-wrap .grid line { stroke: var(--line); stroke-width: 1; }
+  .chart-wrap text { fill: var(--muted); font: 600 12px var(--body); font-variant-numeric: tabular-nums; }
+  .chart-wrap .col { fill: var(--accent); }
+  .chart-wrap .hit { fill: transparent; cursor: default; }
+  .chart-wrap .hit:hover + .col, .chart-wrap .col.on { fill: color-mix(in srgb, var(--accent) 75%, var(--ink)); }
+  .tip {
+    position: absolute; pointer-events: none; background: var(--ink); color: var(--bg); border-radius: 10px;
+    padding: 6px 10px; font-size: .85rem; font-weight: 700; white-space: nowrap; transform: translate(-50%, -110%);
+  }
+  .empty { color: var(--muted); font-size: .95rem; padding: 36px 0; text-align: center; }
+
+  /* Per-booth table */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th { text-align: left; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 0; border-bottom: 1px solid var(--line); }
+  th button { all: unset; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; padding: 10px 8px; }
+  th button:focus-visible { outline: 3px solid var(--accent); border-radius: 6px; }
+  th.num, td.num { text-align: right; }
+  th.num button { justify-content: flex-end; }
+  td { padding: 10px 8px; border-bottom: 1px solid var(--line); font-weight: 600; }
+  td.id { font-family: var(--display); font-weight: 600; font-size: 1.15rem; width: 80px; }
+  td.barcell { width: 42%; }
+  .hbar { display: flex; align-items: center; gap: 10px; }
+  .hbar i { display: block; height: 14px; border-radius: 0 4px 4px 0; background: var(--accent); min-width: 2px; }
+  .hbar span { font-weight: 800; min-width: 2ch; }
+  td.muted { color: var(--muted); font-weight: 600; }
+  tfoot td { font-weight: 800; border-bottom: 0; }
+
+  .err { color: var(--need); font-weight: 700; margin: 0; min-height: 1.3em; }
+  .scrim { position: fixed; inset: 0; z-index: 40; background: rgba(20, 10, 28, .5); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .sheet { width: 100%; max-width: 420px; background: var(--surface); border-radius: 24px; padding: 24px; display: grid; gap: 12px; text-align: center; }
+  .sheet .btn { width: 100%; }
+  #pinInput { text-align: center; letter-spacing: .3em; }
+  .toast {
+    position: fixed; left: 50%; transform: translateX(-50%); z-index: 60;
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-weight: 700;
+  }
+
+  @media (max-width: 900px) {
+    .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .pair { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 520px) {
+    .bar, .content { padding-inline: 16px; }
+    .fields { grid-template-columns: 1fr; }
+    .tile .big { font-size: 1.9rem; }
+    td.barcell { width: auto; }
+  }
+</style>
+</head>
+<body>
+<div id="conn" class="conn" hidden>Reconnecting…</div>
+
+<header class="bar">
+  <h1>Candy <span>Call</span><small>Event overview</small></h1>
+  <a class="icon-btn" href="/team">Team dashboard</a>
+  <button class="icon-btn" id="csvBtn" type="button">Download spreadsheet</button>
+</header>
+
+<main class="content">
+  <section class="tiles" aria-label="Summary">
+    <div class="tile" id="tCandy">
+      <span class="label">Candy left</span>
+      <span class="big" id="candyLeft">–</span>
+      <div class="meter" aria-hidden="true"><i id="candyMeter" style="width:0"></i></div>
+      <span class="sub" id="candySub">Enter your starting amount below.</span>
+    </div>
+    <div class="tile">
+      <span class="label">Refills made</span>
+      <span class="big" id="refills">0</span>
+      <span class="sub" id="refillSub">None yet</span>
+    </div>
+    <div class="tile">
+      <span class="label">Average time to answer</span>
+      <span class="big" id="avgWait">–</span>
+      <span class="sub" id="waitSub">No requests answered yet</span>
+    </div>
+    <div class="tile">
+      <span class="label">Busiest booth</span>
+      <span class="big" id="busiest">–</span>
+      <span class="sub" id="busiestSub">No refills yet</span>
+    </div>
+  </section>
+
+  <div class="pair">
+    <section class="card" aria-labelledby="invTitle">
+      <h2 id="invTitle">Candy on hand</h2>
+      <div class="fields">
+        <label for="unit">Measured in<input id="unit" type="text" maxlength="20" placeholder="bags"></label>
+        <label for="starting">Started with<input id="starting" type="number" min="0" step="any" inputmode="decimal" placeholder="0"></label>
+        <label for="perRefill">Each refill uses<input id="perRefill" type="number" min="0" step="any" inputmode="decimal" placeholder="1"></label>
+      </div>
+      <div class="row"><button class="btn btn-primary small" type="button" id="saveInv">Save</button><p class="hint" id="invHint">Example: started with 30 bags, and each refill uses 1 bag.</p></div>
+      <hr>
+      <div class="add">
+        <label for="addAmt">Candy added during the night<input id="addAmt" type="number" min="0" step="any" inputmode="decimal" placeholder="5"></label>
+        <button class="btn small" type="button" id="addBtn">Add</button>
+      </div>
+      <ul class="restocks" id="restocks"></ul>
+      <button class="btn btn-ghost small" type="button" id="undoAdd" hidden>Undo last addition</button>
+    </section>
+
+    <section class="card" aria-labelledby="timeTitle">
+      <h2 id="timeTitle">Refills over time</h2>
+      <p class="hint">Refills completed in each 15-minute block.</p>
+      <div class="chart-wrap" id="chart"></div>
+    </section>
+  </div>
+
+  <section class="card" aria-labelledby="boothTitle">
+    <h2 id="boothTitle">Refills by booth</h2>
+    <div class="table-wrap">
+      <table id="boothTable">
+        <thead><tr>
+          <th><button type="button" data-sort="id">Booth</button></th>
+          <th><button type="button" data-sort="count">Refills</button></th>
+          <th class="num"><button type="button" data-sort="manual">In person</button></th>
+          <th class="num"><button type="button" data-sort="used">Candy used</button></th>
+          <th class="num"><button type="button" data-sort="last">Last refill</button></th>
+        </tr></thead>
+        <tbody></tbody>
+        <tfoot></tfoot>
+      </table>
+    </div>
+    <p class="empty" id="noBooths" hidden>No booths yet. Add your booth list in Setup on the team dashboard.</p>
+  </section>
+</main>
+
+<div class="scrim" id="pinGate" hidden>
+  <form class="sheet" id="pinForm" autocomplete="off">
+    <h2 style="font-size:1.5rem">Candy team PIN</h2>
+    <p class="hint">Changing the candy numbers needs the team PIN.</p>
+    <input id="pinInput" class="field" inputmode="numeric" type="password" aria-label="Team PIN" required>
+    <p class="err" id="pinErr"></p>
+    <button class="btn btn-primary" type="submit">Unlock</button>
+    <button class="btn btn-ghost" type="button" id="pinCancel">Cancel</button>
+  </form>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="/common.js"></script>
+<script>
+  const C = window.CandyCall;
+  const $ = (id) => document.getElementById(id);
+  let D = null;                       // latest /api/overview
+  let pin = C.store("cc.pin") || "";
+  let sort = { key: "id", dir: 1 };
+  let formDirty = false;
+  let pendingAction = null;
+
+  const fmt = (n) => (Math.round(n * 10) / 10).toLocaleString();
+  // "1 bag", "3 bags": drop a trailing s from the unit when the amount is exactly one
+  const amt = (n, unit) => fmt(n) + " " + (Math.round(n * 10) === 10 && /s$/i.test(unit) ? unit.slice(0, -1) : unit);
+  const clock = (t) => new Date(t * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true });
+  function duration(sec) {
+    sec = Math.round(sec);
+    if (sec < 60) return sec + "s";
+    const m = Math.floor(sec / 60), s = sec % 60;
+    return m + "m" + (s ? " " + s + "s" : "");
+  }
+  function toast(msg) {
+    const t = $("toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 2400);
+  }
+
+  // ---- data ----
+  let fetching = null;
+  function refresh() {
+    clearTimeout(fetching);
+    fetching = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/overview", { cache: "no-store" });
+        D = await res.json();
+        render();
+      } catch (e) {}
+    }, 250);
+  }
+
+  function stats() {
+    const inv = D.inventory;
+    const refills = D.log.filter((e) => e.type === "refill");
+    const acks = D.log.filter((e) => e.type === "ack");
+    const added = inv.restocks.reduce((a, r) => a + r.amount, 0);
+    const total = inv.starting + added;
+    const perBooth = {};
+    D.order.forEach((id) => (perBooth[id] = { id, count: 0, manual: 0, last: 0 }));
+    // Booth counters are the source of truth; the log adds times.
+    D.order.forEach((id) => { const b = D.booths[id]; perBooth[id].count = b.count || 0; perBooth[id].manual = b.manual || 0; });
+    refills.forEach((e) => { if (perBooth[e.booth]) perBooth[e.booth].last = Math.max(perBooth[e.booth].last, e.t); });
+    const count = Object.values(perBooth).reduce((a, b) => a + b.count, 0);
+    const manual = Object.values(perBooth).reduce((a, b) => a + b.manual, 0);
+    Object.values(perBooth).forEach((b) => (b.used = b.count * inv.perRefill));
+    const used = count * inv.perRefill;
+    const waiting = D.order.filter((id) => D.booths[id].status === "requested").length;
+    return { inv, refills, acks, added, total, used, count, manual, perBooth, waiting };
+  }
+
+  // ---- render ----
+  function render() {
+    if (!D) return;
+    const s = stats(), u = s.inv.unit;
+
+    // Candy left
+    const left = s.total - s.used;
+    if (s.total > 0) {
+      $("candyLeft").innerHTML = "";
+      $("candyLeft").append(fmt(Math.max(left, 0)));
+      const sm = document.createElement("small"); sm.textContent = u; $("candyLeft").append(sm);
+      $("candyMeter").style.width = Math.max(0, Math.min(100, (left / s.total) * 100)) + "%";
+      $("candySub").textContent = left < 0
+        ? "Used " + amt(-left, u) + " more than recorded. Add candy below."
+        : fmt(s.used) + " of " + amt(s.total, u) + " used";
+      $("tCandy").classList.toggle("low", left <= s.total * 0.15);
+    } else {
+      $("candyLeft").textContent = "–";
+      $("candyMeter").style.width = "0";
+      $("candySub").textContent = s.used ? amt(s.used, u) + " used so far. Enter your starting amount below." : "Enter your starting amount below.";
+      $("tCandy").classList.remove("low");
+    }
+
+    // Refills
+    $("refills").textContent = s.count;
+    $("refillSub").textContent = s.count ? (s.count - s.manual) + " from the app · " + s.manual + " in person" : "None yet";
+
+    // Average time to answer
+    if (s.acks.length) {
+      $("avgWait").textContent = duration(s.acks.reduce((a, e) => a + e.wait, 0) / s.acks.length);
+      $("waitSub").textContent = s.acks.length + (s.acks.length === 1 ? " request" : " requests") + " answered" + (s.waiting ? " · " + s.waiting + " waiting now" : "");
+    } else {
+      $("avgWait").textContent = "–";
+      $("waitSub").textContent = s.waiting ? s.waiting + " waiting now" : "No requests answered yet";
+    }
+
+    // Busiest booth
+    const top = Object.values(s.perBooth).sort((a, b) => b.count - a.count || natural(a.id, b.id))[0];
+    if (top && top.count) {
+      $("busiest").textContent = top.id;
+      $("busiestSub").textContent = top.count + (top.count === 1 ? " refill" : " refills");
+    } else { $("busiest").textContent = "–"; $("busiestSub").textContent = "No refills yet"; }
+
+    renderInventory(s);
+    renderChart(s);
+    renderTable(s);
+  }
+
+  function renderInventory(s) {
+    if (!formDirty) {
+      $("unit").value = s.inv.unit;
+      $("starting").value = s.inv.starting || "";
+      $("perRefill").value = s.inv.perRefill;
+    }
+    const list = $("restocks"); list.replaceChildren();
+    s.inv.restocks.forEach((r) => {
+      const li = document.createElement("li");
+      const b = document.createElement("b"); b.textContent = "+" + amt(r.amount, s.inv.unit);
+      li.append(b, " at " + clock(r.t));
+      list.append(li);
+    });
+    $("undoAdd").hidden = !s.inv.restocks.length;
+  }
+
+  function renderChart(s) {
+    const box = $("chart");
+    if (!s.refills.length) {
+      box.innerHTML = '<p class="empty">The chart fills in as refills are made.</p>';
+      return;
+    }
+    const step = 900; // 15 minutes
+    const first = Math.floor(Math.min(...s.refills.map((e) => e.t)) / step) * step;
+    const lastT = Math.max(D.now, ...s.refills.map((e) => e.t));
+    const n = Math.min(64, Math.floor((lastT - first) / step) + 1);
+    const start = first + Math.max(0, Math.floor((lastT - first) / step) + 1 - n) * step;
+    const bins = Array.from({ length: n }, (_, i) => ({ t: start + i * step, c: 0 }));
+    s.refills.forEach((e) => { const i = Math.floor((e.t - start) / step); if (i >= 0 && i < n) bins[i].c++; });
+
+    const W = Math.max(280, box.clientWidth || 600), H = 240, L = 34, R = 8, T = 12, B = 28;
+    const max = Math.max(...bins.map((b) => b.c));
+    const tickStep = max <= 5 ? 1 : max <= 10 ? 2 : Math.ceil(max / 5);
+    const yMax = Math.ceil(max / tickStep) * tickStep || 1;
+    const y = (v) => T + (H - T - B) * (1 - v / yMax);
+    const slot = (W - L - R) / n, gap = Math.min(8, slot * 0.25), bw = Math.max(2, slot - gap);
+    const labelEvery = Math.max(1, Math.ceil(56 / slot));
+
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Refills completed in each 15-minute block"><g class="grid">`;
+    for (let v = 0; v <= yMax; v += tickStep) svg += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+    svg += "</g>";
+    bins.forEach((b, i) => {
+      const x = L + i * slot + gap / 2, top = y(b.c), h = y(0) - top;
+      const r = Math.min(4, bw / 2, h);
+      svg += `<rect class="hit" data-i="${i}" x="${L + i * slot}" y="${T}" width="${slot}" height="${H - T - B}"/>`;
+      svg += h > 0
+        ? `<path class="col" data-i="${i}" d="M${x},${y(0)} V${top + r} Q${x},${top} ${x + r},${top} H${x + bw - r} Q${x + bw},${top} ${x + bw},${top + r} V${y(0)} Z"/>`
+        : `<path class="col" data-i="${i}" d=""/>`;
+      if (i % labelEvery === 0) svg += `<text x="${x + bw / 2}" y="${H - 8}" text-anchor="middle">${clock(b.t)}</text>`;
+    });
+    svg += "</svg>";
+    box.innerHTML = svg + '<div class="tip" hidden></div>';
+
+    const tip = box.querySelector(".tip");
+    box.querySelectorAll(".hit").forEach((el) => {
+      const i = +el.dataset.i, b = bins[i];
+      const show = () => {
+        box.querySelectorAll(".col.on").forEach((c) => c.classList.remove("on"));
+        box.querySelector(`.col[data-i="${i}"]`).classList.add("on");
+        tip.textContent = clock(b.t) + "–" + clock(b.t + step) + " · " + b.c + (b.c === 1 ? " refill" : " refills");
+        const sx = box.clientWidth / W;
+        tip.style.left = (L + (i + 0.5) * slot) * sx + "px";
+        tip.style.top = y(b.c) * (box.querySelector("svg").clientHeight / H) + "px";
+        tip.hidden = false;
+      };
+      el.addEventListener("pointerenter", show);
+      el.addEventListener("pointerdown", show);
+      el.addEventListener("pointerleave", () => { tip.hidden = true; box.querySelectorAll(".col.on").forEach((c) => c.classList.remove("on")); });
+    });
+  }
+
+  function renderTable(s) {
+    const rows = Object.values(s.perBooth);
+    $("noBooths").hidden = rows.length > 0;
+    $("boothTable").hidden = rows.length === 0;
+    const k = sort.key;
+    rows.sort((a, b) => (k === "id" ? natural(a.id, b.id) : (a[k] - b[k]) || natural(a.id, b.id)) * sort.dir);
+    const max = Math.max(1, ...rows.map((r) => r.count));
+    const u = s.inv.unit;
+    const tb = $("boothTable").tBodies[0];
+    tb.replaceChildren();
+    rows.forEach((r) => {
+      const tr = document.createElement("tr");
+      const cell = (text, cls) => { const td = document.createElement("td"); if (cls) td.className = cls; td.textContent = text; tr.append(td); return td; };
+      cell(r.id, "id");
+      const bc = cell("", "barcell");
+      const hb = document.createElement("div"); hb.className = "hbar";
+      const bar = document.createElement("i"); bar.style.width = (r.count / max) * 100 + "%"; if (!r.count) bar.style.opacity = ".25";
+      const num = document.createElement("span"); num.textContent = r.count;
+      hb.append(bar, num); bc.append(hb);
+      cell(r.manual, "num" + (r.manual ? "" : " muted"));
+      cell(r.count ? amt(r.used, u) : "–", "num" + (r.count ? "" : " muted"));
+      cell(r.last ? clock(r.last) : "–", "num" + (r.last ? "" : " muted"));
+      tb.append(tr);
+    });
+    const tf = $("boothTable").tFoot; tf.replaceChildren();
+    if (rows.length) {
+      const tr = document.createElement("tr");
+      [["Total", ""], [s.count, ""], [s.manual, "num"], [amt(s.used, u), "num"], ["", "num"]].forEach(([t, c]) => {
+        const td = document.createElement("td"); td.className = c; td.textContent = t; tr.append(td);
+      });
+      tf.append(tr);
+    }
+    document.querySelectorAll("th button").forEach((b) => {
+      const on = b.dataset.sort === sort.key;
+      b.textContent = b.textContent.replace(/ [↑↓]$/, "") + (on ? (sort.dir > 0 ? " ↑" : " ↓") : "");
+      b.closest("th").setAttribute("aria-sort", on ? (sort.dir > 0 ? "ascending" : "descending") : "none");
+    });
+  }
+
+  document.querySelectorAll("th button").forEach((b) => b.addEventListener("click", () => {
+    const k = b.dataset.sort;
+    sort = sort.key === k ? { key: k, dir: -sort.dir } : { key: k, dir: k === "id" ? 1 : -1 };
+    render();
+  }));
+
+  // ---- changes (team PIN) ----
+  async function act(path, body) {
+    try { await C.post(path, Object.assign({ pin }, body)); return true; }
+    catch (e) {
+      if (/PIN/.test(e.message)) { pin = ""; C.store("cc.pin", null); pendingAction = () => act(path, body); showPin(); }
+      else toast(e.message);
+      return false;
+    }
+  }
+  ["unit", "starting", "perRefill"].forEach((id) => $(id).addEventListener("input", () => (formDirty = true)));
+  $("saveInv").addEventListener("click", async () => {
+    const body = { unit: $("unit").value, starting: $("starting").value || 0, perRefill: $("perRefill").value || 0 };
+    if (await act("/api/inventory", body)) { formDirty = false; toast("Candy numbers saved"); }
+  });
+  $("addBtn").addEventListener("click", async () => {
+    const amount = parseFloat($("addAmt").value);
+    if (!(amount > 0)) { toast("Enter how much candy was added"); return; }
+    if (await act("/api/restock", { amount })) { $("addAmt").value = ""; toast("Added " + amt(amount, D ? D.inventory.unit : "")); }
+  });
+  $("undoAdd").addEventListener("click", async () => { if (await act("/api/restock/undo")) toast("Last addition removed"); });
+
+  function showPin() { $("pinGate").hidden = false; $("pinErr").textContent = ""; setTimeout(() => $("pinInput").focus(), 50); }
+  $("pinCancel").addEventListener("click", () => { $("pinGate").hidden = true; pendingAction = null; });
+  $("pinForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const tryPin = $("pinInput").value.trim();
+    const r = await C.post("/api/team/check", { pin: tryPin }).catch(() => ({}));
+    if (!r.ok) { $("pinErr").textContent = "That PIN didn't work. Try again."; return; }
+    pin = tryPin; C.store("cc.pin", pin); $("pinGate").hidden = true; $("pinInput").value = "";
+    if (pendingAction) { const a = pendingAction; pendingAction = null; a(); }
+  });
+
+  // ---- spreadsheet ----
+  $("csvBtn").addEventListener("click", () => {
+    if (!D) return;
+    const s = stats(), u = s.inv.unit;
+    const q = (v) => '"' + String(v).replace(/"/g, '""') + '"';
+    const lines = [["Booth", "Refills", "From the app", "In person", "Candy used (" + u + ")", "Last refill"].map(q).join(",")];
+    Object.values(s.perBooth).sort((a, b) => natural(a.id, b.id)).forEach((r) =>
+      lines.push([r.id, r.count, r.count - r.manual, r.manual, fmt(r.used), r.last ? clock(r.last) : ""].map(q).join(",")));
+    lines.push(["Total", s.count, s.count - s.manual, s.manual, fmt(s.used), ""].map(q).join(","));
+    lines.push("", ["Candy started with (" + u + ")", fmt(s.inv.starting)].map(q).join(","),
+      ["Candy added (" + u + ")", fmt(s.added)].map(q).join(","),
+      ["Candy left (" + u + ")", s.total ? fmt(s.total - s.used) : ""].map(q).join(","),
+      "", ["Refill log", "", ""].map(q).join(","), ["Time", "Booth", "How"].map(q).join(","));
+    s.refills.forEach((e) => lines.push([new Date(e.t * 1000).toLocaleString(), e.booth, e.manual ? "In person" : "App request"].map(q).join(",")));
+    const blob = new Blob([lines.join("\r\n")], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "candy-call-" + new Date().toISOString().slice(0, 10) + ".csv";
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+
+  // ---- live ----
+  C.connect(() => refresh(), (up) => { $("conn").hidden = up; });
+  setInterval(render, 30000);
+  let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(render, 150); });
+</script>
+</body>
+</html>
