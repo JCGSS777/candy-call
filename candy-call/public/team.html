@@ -202,6 +202,14 @@
         <button class="btn btn-danger" type="button" id="resetYes">Reset all booths</button>
       </div>
     </div>
+    <button class="btn btn-ghost btn-danger" type="button" id="wipeBtn">Erase everything</button>
+    <div class="confirm" id="wipeConfirm" hidden>
+      <p class="hint" style="color:var(--ink)"><b>This can't be undone.</b> Removes every booth, all refill counts and history, and the candy numbers on the event overview. The site starts over as if it were brand new.</p>
+      <div class="row">
+        <button class="btn" type="button" id="wipeNo">Keep everything</button>
+        <button class="btn btn-danger" type="button" id="wipeYes">Erase everything</button>
+      </div>
+    </div>
     <button class="btn btn-ghost" type="button" data-close>Done</button>
   </div>
 </div>
@@ -464,6 +472,7 @@
   function openSetup() {
     $("boothLink").textContent = location.origin + "/booth";
     $("resetConfirm").hidden = true;
+    $("wipeConfirm").hidden = true;
     $("setupSheet").hidden = false;
   }
   $("setupBtn").addEventListener("click", openSetup);
@@ -477,6 +486,11 @@
   });
   $("resetBtn").addEventListener("click", () => ($("resetConfirm").hidden = false));
   $("resetNo").addEventListener("click", () => ($("resetConfirm").hidden = true));
+  $("wipeBtn").addEventListener("click", () => { $("resetConfirm").hidden = true; $("wipeConfirm").hidden = false; });
+  $("wipeNo").addEventListener("click", () => ($("wipeConfirm").hidden = true));
+  $("wipeYes").addEventListener("click", async () => {
+    if (await act("/api/wipe")) { $("wipeConfirm").hidden = true; toast("Everything erased"); }
+  });
   $("resetYes").addEventListener("click", async () => {
     if (await act("/api/reset")) { $("resetConfirm").hidden = true; toast("All booths reset"); }
   });
