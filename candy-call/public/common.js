@@ -27,8 +27,20 @@ window.CandyCall = (function () {
     }
     open();
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible" && es.readyState === EventSource.CLOSED) open();
+      if (document.visibilityState !== "visible") return;
+      if (es.readyState === EventSource.CLOSED) open();
+      checkIn();
     });
+
+    // The free hosting plan sleeps after 15 minutes without an incoming request,
+    // and the live-update stream may not count. A small request every 5 minutes
+    // keeps the site awake for as long as any Candy Call page is open on screen.
+    setInterval(checkIn, HEARTBEAT_MS);
+  }
+
+  const HEARTBEAT_MS = 5 * 60 * 1000;
+  function checkIn() {
+    fetch("/api/state", { cache: "no-store" }).catch(() => {});
   }
 
   async function post(path, body) {
